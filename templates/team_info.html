@@ -56,6 +56,19 @@
         {% endfor %}
     </ul>
 
+    <h3>Multiple Transfer Suggestions:</h3>
+    <ul>
+        {% for transfer in multi_transfer %}
+            <li>Sell {{ transfer.sell }} for {{ transfer.sell_price / 10 }} million to get {{ transfer.buy }} for {{ transfer.buy_price / 10 }} million (Position: {{ transfer.position }})</li>
+        {% endfor %}
+    </ul>
+
+    <!-- <h3>Multiple Transfers:</h3>
+    <ul>
+        {% for transfer in multiple_transfer %}
+            <li>Sell {{ transfer.sell }} for {{ transfer.sell_price / 10 }} million to buy {{ transfer.buy }} for {{ transfer.buy_price / 10 }} million (Position: {{ transfer.position }})</li>
+        {% endfor %}
+    </ul> -->
 
     <h2>Top Goalkeepers</h2>
     <table>

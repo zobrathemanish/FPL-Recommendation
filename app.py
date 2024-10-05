@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for
-from functions import get_current_gameweek, get_input_squad, get_team_info, get_top_players_by_position, assign_bench_and_watch_avoid,suggest_multiple_transfers
+from functions import get_current_gameweek, get_input_squad, get_team_info, get_top_players_by_position, assign_bench_and_watch_avoid
 from functions import select_starting_11_and_bench, get_player_data, get_free_transfers, suggest_transfer,sort_by_pca_scores,determine_captain_and_vice_captain
+# from functions import suggest_multiple_transfers
 import pandas as pd
 
 app = Flask(__name__)
@@ -37,6 +38,9 @@ def show_team_info(team_id):
     # Call the function to get players to keep and watch/avoid
     keep, watch_avoid = assign_bench_and_watch_avoid(input_squad['id'])
     sorted_keep = keep.sort_values(by='pca_score', ascending=False)
+    # Assuming sorted_keep is a pandas DataFrame
+    sorted_keep_list = sorted_keep.to_dict(orient='records')
+
       # Sort the 'watch_avoid' DataFrame by 'intracluster_distance' and display
     sorted_watch_avoid = sort_by_pca_scores(watch_avoid)
 
@@ -66,8 +70,8 @@ def show_team_info(team_id):
 
     suggested_watch_transfer = suggest_transfer(sorted_watch_avoid, top_goalkeepers,top_defenders,top_midfielders,top_forwards,available_budget,free_transfers,team_id)
     suggested_keep_transfer = suggest_transfer(keep, top_goalkeepers,top_defenders,top_midfielders,top_forwards,available_budget,5,team_id)
-    multiple_transfer = suggest_multiple_transfers(input_squad_with_pca, top_goalkeepers,top_defenders,top_midfielders,top_forwards,available_budget,2,team_id)
-    print(multiple_transfer)
+    # multiple_transfer = suggest_multiple_transfers(input_squad_with_pca, top_goalkeepers,top_defenders,top_midfielders,top_forwards,available_budget,2,team_id)
+    # print(multiple_transfer)
 
     captain_and_vice = determine_captain_and_vice_captain(keep)    
 
@@ -75,6 +79,7 @@ def show_team_info(team_id):
     return render_template('team_info.html',
                        welcome_message=f"Welcome {player_first_name}!",
                        gameweek_message=f"For Gameweek {gw_number + 1}",
+                       sorted_keep = sorted_keep_list,
                        starting_11=starting_11,
                        bench=bench,
                        available_budget=available_budget,

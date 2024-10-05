@@ -570,115 +570,114 @@ def suggest_transfer(watch_avoid, top_goalkeepers, top_defenders, top_midfielder
 
     return suggested_transfers
 
-def suggest_multiple_transfers(watch_avoid, top_goalkeepers, top_defenders, top_midfielders, top_forwards, available_budget, free_transfers, team_id):
-    """
-    This function suggests multiple transfers by selling multiple players and buying multiple replacements based on PCA scores.
+# def suggest_multiple_transfers(watch_avoid, top_goalkeepers, top_defenders, top_midfielders, top_forwards, available_budget, free_transfers, team_id):
+#     """
+#     This function suggests multiple transfers by selling multiple players and buying multiple replacements based on PCA scores.
 
-    Parameters:
-    - watch_avoid (DataFrame): The list of players to consider for selling.
-    - top_goalkeepers, top_defenders, top_midfielders, top_forwards (DataFrame): DataFrames of top players by position.
-    - available_budget (float): The budget left for transfers.
-    - free_transfers (int): Number of free transfers available.
-    - team_id (int): The user's team ID.
+#     Parameters:
+#     - watch_avoid (DataFrame): The list of players to consider for selling.
+#     - top_goalkeepers, top_defenders, top_midfielders, top_forwards (DataFrame): DataFrames of top players by position.
+#     - available_budget (float): The budget left for transfers.
+#     - free_transfers (int): Number of free transfers available.
+#     - team_id (int): The user's team ID.
 
-    Returns:
-    - List of transfer suggestions (sell and buy pairs).
-    """
-    position_map = {1: 'Goalkeeper', 2: 'Defender', 3: 'Midfielder', 4: 'Forward'}
+#     Returns:
+#     - List of transfer suggestions (sell and buy pairs).
+#     """
+#     position_map = {1: 'Goalkeeper', 2: 'Defender', 3: 'Midfielder', 4: 'Forward'}
 
-    # Function to find replacements for a combination of players to sell
-    def find_replacements(players_to_sell, available_budget, team_id):
-        gw_number = get_current_gameweek()
-        input_squad = get_input_squad(team_id, gw_number)
+#     # Function to find replacements for a combination of players to sell
+#     def find_replacements(players_to_sell, available_budget, team_id):
+#         gw_number = get_current_gameweek()
+#         input_squad = get_input_squad(team_id, gw_number)
 
-        # Get total selling price for selected players
-        total_selling_price = sum(player['now_cost'] for player in players_to_sell)
+#         replacements = []
+#         remaining_budget = available_budget  # Start with only the available budget
 
-        # Combine available budget with total selling price to get total budget for buying new players
-        combined_budget = total_selling_price + available_budget
+#         # Iterate through the players_to_sell and find replacements
+#         for player in players_to_sell:
+#             player_position = player['element_type']
 
-        replacements = []
-        remaining_budget = combined_budget
+#             # Get the corresponding top players for the player's position
+#             if player_position == 1:
+#                 top_players = top_goalkeepers
+#             elif player_position == 2:
+#                 top_players = top_defenders
+#             elif player_position == 3:
+#                 top_players = top_midfielders
+#             elif player_position == 4:
+#                 top_players = top_forwards
 
-        # Iterate through the players_to_sell and find replacements
-        for player in players_to_sell:
-            player_position = player['element_type']
+#             # Filter top players by available budget and higher PCA score than the player to be sold
+#             affordable_players = top_players[top_players['now_cost'] <= remaining_budget]
+#             affordable_players = affordable_players[affordable_players['pca_score'] > player['pca_score']]
 
-            # Get the corresponding top players for the player's position
-            if player_position == 1:
-                top_players = top_goalkeepers
-            elif player_position == 2:
-                top_players = top_defenders
-            elif player_position == 3:
-                top_players = top_midfielders
-            elif player_position == 4:
-                top_players = top_forwards
+#             # Exclude players already in the squad
+#             affordable_players = affordable_players[~affordable_players['web_name'].isin(input_squad['web_name'])]
 
-            # Filter top players by available budget and higher PCA score than the player to be sold
-            affordable_players = top_players[top_players['now_cost'] <= remaining_budget]
-            affordable_players = affordable_players[affordable_players['pca_score'] > player['pca_score']]
+#             if not affordable_players.empty:
+#                 # Sort by PCA score and select the best replacement
+#                 affordable_players = affordable_players.sort_values(by='pca_score', ascending=False)
+#                 best_replacement = affordable_players.iloc[0]
+#                 replacements.append(best_replacement)
 
-            # Exclude players already in the squad
-            affordable_players = affordable_players[~affordable_players['web_name'].isin(input_squad['web_name'])]
+#                 # Update remaining budget
+#                 remaining_budget -= best_replacement['now_cost']
 
-            if not affordable_players.empty:
-                # Sort by PCA score and select the best replacement
-                affordable_players = affordable_players.sort_values(by='pca_score', ascending=False)
-                best_replacement = affordable_players.iloc[0]
-                replacements.append(best_replacement)
+#         return replacements if replacements else None
 
-                # Update remaining budget
-                remaining_budget -= best_replacement['now_cost']
+#     # List to store suggested transfers
+#     suggested_transfers = []
 
-        return replacements if replacements else None
+#     # Make a copy of watch_avoid to avoid modifying the original DataFrame
+#     remaining_watch_avoid = watch_avoid.copy()
 
-    # List to store suggested transfers
-    suggested_transfers = []
+#     # Iterate over combinations of players in watch_avoid
+#     for i in range(len(remaining_watch_avoid)):
+#         for j in range(i + 1, len(remaining_watch_avoid)):
+#             # Get the current two players to sell
+#             players_to_sell = [remaining_watch_avoid.iloc[i], remaining_watch_avoid.iloc[j]]
 
-    # Make a copy of watch_avoid to avoid modifying the original DataFrame
-    remaining_watch_avoid = watch_avoid.copy()
+#             # Find replacements for the combination of players
+#             replacements = find_replacements(players_to_sell, available_budget, team_id)
 
-    # Iterate over combinations of players in watch_avoid, starting from the bottom 2
-    for i in range(len(remaining_watch_avoid)):
-        for j in range(i + 1, len(remaining_watch_avoid)):
-            # Get the current two players to sell
-            players_to_sell = [remaining_watch_avoid.iloc[i], remaining_watch_avoid.iloc[j]]
+#             if replacements:
+#                 # Calculate total selling prices
+#                 total_selling_price = sum(player['now_cost'] for player in players_to_sell) + available_budget
+#                 # Calculate total buying prices
+#                 total_buying_price = sum(replacement['now_cost'] for replacement in replacements)
 
-            # Find replacements for the combination of players
-            replacements = find_replacements(players_to_sell, available_budget, team_id)
+#                 # Check if total selling price + available budget is greater than or equal to total buying price
+#                 if total_selling_price >= total_buying_price:
+#                     for sell_player, buy_player in zip(players_to_sell, replacements):
+#                         suggested_transfers.append({
+#                             'sell': sell_player['web_name'],
+#                             'buy': buy_player['web_name'],
+#                             'position': position_map[sell_player['element_type']],
+#                             'sell_price': float(sell_player['now_cost']),
+#                             'buy_price': float(buy_player['now_cost'])
+#                         })
 
-            if replacements:
-                # Add each replacement suggestion to the suggested_transfers list
-                for sell_player, buy_player in zip(players_to_sell, replacements):
-                    suggested_transfers.append({
-                        'sell': sell_player['web_name'],
-                        'buy': buy_player['web_name'],
-                        'position': position_map[sell_player['element_type']],
-                        'sell_price': int(sell_player['now_cost']/10),
-                        'buy_price': int(buy_player['now_cost']/10)
-                    })
+#                     # Remove the processed players by their actual index, not the positional index
+#                     indices_to_drop = [remaining_watch_avoid.iloc[i].name, remaining_watch_avoid.iloc[j].name]
+#                     remaining_watch_avoid = remaining_watch_avoid.drop(indices_to_drop)
 
-                # Remove the processed players by their actual index, not the positional index
-                indices_to_drop = [remaining_watch_avoid.iloc[i].name, remaining_watch_avoid.iloc[j].name]
-                remaining_watch_avoid = remaining_watch_avoid.drop(indices_to_drop)
+#                 # Break if enough transfers for free_transfers are suggested
+#                 if len(suggested_transfers) >= free_transfers:
+#                     break
 
-            # Break if enough transfers for free_transfers are suggested
-            if len(suggested_transfers) >= free_transfers:
-                break
+#         if len(suggested_transfers) >= free_transfers:
+#             break
 
-        if len(suggested_transfers) >= free_transfers:
-            break
+#     # Output suggested transfers
+#     if suggested_transfers:
+#         for transfer in suggested_transfers:
+#             print(f"Suggesting Transfer: Sell {transfer['sell']} ({transfer['position']}) for {transfer['sell_price'] / 10}m")
+#             print(f"Buy {transfer['buy']} ({transfer['position']}) for {transfer['buy_price'] / 10}m\n")
+#     else:
+#         print("No suitable transfers found.")
 
-    # Output suggested transfers
-    if suggested_transfers:
-        for transfer in suggested_transfers:
-            print(f"Suggesting Transfer: Sell {transfer['sell']} ({transfer['position']}) for {transfer['sell_price'] / 10}m")
-            print(f"Buy {transfer['buy']} ({transfer['position']}) for {transfer['buy_price'] / 10}m\n")
-    else:
-        print("No suitable transfers found.")
-
-    return suggested_transfers
-
+#     return suggested_transfers
 
 
 def determine_captain_and_vice_captain(players_df):
