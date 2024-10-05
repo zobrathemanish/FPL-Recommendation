@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fantasy Football Team</title>
+</head>
+<body>
+    <h1>{{ welcome_message }}</h1>
+    <h2>{{ gameweek_message }}</h2>
+
+    <!-- Display sorted players to keep -->
+    <h3>Players you should keep (sorted by score):</h3>
+    <ul>
+        {% for player in sorted_keep %}
+            <li>{{ player['web_name'] }} (Score: {{ player['pca_score'] }})</li>
+        {% endfor %}
+    </ul>
+
+    <!-- Suggested Starting Lineup and Bench -->
+    <h3>Your Suggested Lineup:</h3>
+    <h4>Starting 11:</h4>
+    <ul>
+        {% for player in starting_11 %}
+            <li>{{ player['web_name_x'] }}</li>
+        {% endfor %}
+    </ul>
+
+    <h4>Bench:</h4>
+    <ul>
+        {% for player in bench %}
+            <li>{{ player['web_name_x'] }}</li>
+        {% endfor %}
+    </ul>
+
+      <!-- Captain and Vice-Captain -->
+      <h3>Captain: {{ captain }}</h3>
+      <h4>Vice-Captain: {{ vice_captain }}</h4>
+
+    <!-- Suggested Transfers based on budget and free transfers -->
+     
+    <h3>Suggested Transfer:</h3>
+    <h3>Suggested Transfer:</h3>
+    <ul>
+        {% for transfer in suggested_watch_transfer %}
+            <li>Sell {{ transfer.sell }} for {{ transfer.sell_price / 10 }} million to get {{ transfer.buy }} for {{ transfer.buy_price / 10 }} million (Position: {{ transfer.position }})</li>
+        {% endfor %}
+    </ul>
+
+
+    <h3>Alternative Transfer:</h3>
+    <h3>Alternative Transfer:</h3>
+    <ul>
+        {% for transfer in suggested_keep_transfer %}
+            <li>Sell {{ transfer.sell }} for {{ transfer.sell_price / 10 }} million to get {{ transfer.buy }} for {{ transfer.buy_price / 10 }} million (Position: {{ transfer.position }})</li>
+        {% endfor %}
+    </ul>
+
+
+    <h2>Top Goalkeepers</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Web Name</th>
+                <th>Now Cost</th>
+                <th>PCA Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for goalkeeper in top_goalkeepers %}
+            <tr>
+                <td>{{ goalkeeper.web_name }}</td>
+                <td>{{ goalkeeper.now_cost }}</td>
+                <td>{{ goalkeeper.pca_score }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Top Defenders</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Player Name</th>
+                <th>Current Price</th>
+                <th> Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for defender in top_defenders %}
+            <tr>
+                <td>{{ defender.web_name }}</td>
+                <td>{{ defender.now_cost }}</td>
+                <td>{{ defender.pca_score }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Top Midfielders</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Player Name</th>
+                <th>Current Price</th>
+                <th> Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for midfielder in top_midfielders %}
+            <tr>
+                <td>{{ midfielder.web_name }}</td>
+                <td>{{ midfielder.now_cost }}</td>
+                <td>{{ midfielder.pca_score }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <h2>Top Forwards</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Player Name</th>
+                <th>Current Price</th>
+                <th> Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for forward in top_forwards %}
+            <tr>
+                <td>{{ forward.web_name }}</td>
+                <td>{{ forward.now_cost }}</td>
+                <td>{{ forward.pca_score }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+  
+</body>
+</html>
