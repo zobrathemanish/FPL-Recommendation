@@ -37,7 +37,7 @@ def show_team_info(team_id):
 
     # Call the function to get players to keep and watch/avoid
     keep, watch_avoid = assign_bench_and_watch_avoid(input_squad['id'])
-    sorted_keep = keep.sort_values(by='pca_score', ascending=False)
+    sorted_keep = keep.sort_values(by='adjusted_score', ascending=False)
     # Assuming sorted_keep is a pandas DataFrame
     sorted_keep_list = sorted_keep.to_dict(orient='records')
 
@@ -46,15 +46,6 @@ def show_team_info(team_id):
 
     # Merge sorted_watch_avoid and keep into input_squad_with_pca
     input_squad_with_pca = pd.concat([sorted_watch_avoid, keep], ignore_index=True)
-
-    # Format the data to display
-    # keep_players = sorted_keep[['id', 'web_name', 'pca_score']].rename(columns={'web_name':'Player Name', 'pca_score': 'score'}).to_dict(orient='records')
-
-    # # Format Top Players
-    # top_goalkeepers_list = top_goalkeepers[['web_name', 'pca_score', 'now_cost']].rename(columns={'web_name':'Player Name', 'pca_score': 'score', 'now_cost':'Cost'}).assign(Cost=lambda df: df['Cost'] / 10).to_dict(orient='records')
-    # top_defenders_list = top_defenders[['web_name', 'pca_score', 'now_cost']].rename(columns={'web_name':'Player Name', 'pca_score': 'score', 'now_cost':'Cost'}).assign(Cost=lambda df: df['Cost'] / 10).to_dict(orient='records')
-    # top_midfielders_list = top_midfielders[['web_name', 'pca_score', 'now_cost']].rename(columns={'web_name':'Player Name', 'pca_score': 'score', 'now_cost':'Cost'}).assign(Cost=lambda df: df['Cost'] / 10).to_dict(orient='records')
-    # top_forwards_list = top_forwards[['web_name', 'pca_score', 'now_cost']].rename(columns={'web_name':'Player Name', 'pca_score': 'score', 'now_cost':'Cost'}).assign(Cost=lambda df: df['Cost'] / 10).to_dict(orient='records')
 
     # Convert DataFrames to lists of dictionaries
     top_goalkeepers_list = top_goalkeepers.to_dict(orient='records')

@@ -3,6 +3,13 @@ import requests
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.decomposition import PCA
+from sklearn.feature_selection import VarianceThreshold
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score
+
 
 def get_player_data():
     players_url = 'https://fantasy.premierleague.com/api/bootstrap-static/'
@@ -82,7 +89,8 @@ def get_picks_for_gameweek(team_id, gw_number):
             print(f"Failed to retrieve picks: {response.status_code}")
             return None
 
-def calculate_average_fdr(fixtures_df):
+def calculate_average_fdr():
+        fixtures_df = get_fixtures()
         # Filter remaining (unfinished) fixtures
         remaining_fixtures = fixtures_df[fixtures_df['finished'] == False]
     
@@ -97,7 +105,7 @@ def calculate_average_fdr(fixtures_df):
             # Get home and away fixtures for this team
             team_fixtures = remaining_fixtures[
                 (remaining_fixtures['team_h'] == team) | (remaining_fixtures['team_a'] == team)
-            ].head(5)  # Limit to 5 fixtures
+            ].head(3)  # Limit to 1 fixtures
     
             # Collect FDR for home and away games
             for idx, fixture in team_fixtures.iterrows():
@@ -115,58 +123,10 @@ def calculate_average_fdr(fixtures_df):
     
         return average_fdr
 
-from sklearn.decomposition import PCA
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import StandardScaler
-import numpy as np
-import pandas as pd
-import requests
-from sklearn.preprocessing import LabelEncoder
 
-def get_intracluster_distance(player_name):
-    top_goalkeepers, top_defenders, top_midfielders, top_forwards, all_players = get_top_players_by_position()
-    
-    # Drop rows with NaN in the 'web_name' column before performing operations
-    all_players = all_players[all_players['web_name'].notna()]
-
-    # Convert web_name to lowercase for case-insensitive comparison
-    all_players['web_name'] = all_players['web_name'].str.lower()
-
-    # Search for the player by name (also lowercased)
-    player_row = all_players[all_players['web_name'] == player_name.lower()]
-
-    if not player_row.empty:
-        # If the player exists, return their PCA-based ranking score
-        player_pca_score = player_row['pca_score'].values[0]
-        return player_pca_score
-    else:
-        print(f"Player '{player_name}' not found.")
-        return None
-
-def get_top_players_by_position():
-    # Function to fetch fixtures data
-    def get_fixtures():
-        fixtures_url = 'https://fantasy.premierleague.com/api/fixtures/'
-        response = requests.get(fixtures_url)
-        if response.status_code == 200:
-            return pd.DataFrame(response.json())
-        else:
-            print(f"Failed to retrieve fixtures: {response.status_code} - {response.text}")
-            return None
-
-    # Fetch data
-    fixtures_df = get_fixtures()
-    players_df = get_player_data()
-
-    if players_df is None or fixtures_df is None:
-        print("Failed to retrieve necessary data. Exiting.")
-        return None
-
-    # Filter out players with status 'i' (injured) or 'u' (unavailable)
-    players_df = players_df[~players_df['status'].isin(['i', 'u'])]
-
+def add_average_fdr(players_df):
     # Get average FDR for each team
-    average_fdr = calculate_average_fdr(fixtures_df)
+    average_fdr = calculate_average_fdr()
 
     # Map team names back to their IDs
     team_mapping = {
@@ -177,66 +137,306 @@ def get_top_players_by_position():
         17: 'Southampton', 18: 'Spurs', 19: 'West Ham', 20: 'Wolves'
     }
     
+    # Map team names
     average_fdr['team_name'] = average_fdr['team'].map(team_mapping)
-    players_df = players_df.merge(average_fdr, how='left', left_on='team', right_on='team')
+    
+    # Invert the average FDR
+    max_fdr = average_fdr['average_fdr'].max()
+    average_fdr['adjusted_fdr'] = 7 - average_fdr['average_fdr']
+    
+    # Sort teams by adjusted FDR
+    # sorted_fdr = average_fdr.sort_values(by='adjusted_fdr', ascending=False)
 
-    # Label encoding for the 'status' column
+    # Merge adjusted FDR back to players_df
+    # players_df = players_df.merge(average_fdr[['team', 'adjusted_fdr']], how='left', on='team', suffixes=('', '_avg'))
+    players_df = players_df.merge(average_fdr[['team', 'adjusted_fdr','average_fdr']], how='left', on='team', suffixes=('', '_avg'))
+    # players_df = players_df.merge(average_fdr, how='left', left_on='team', right_on='team')
+
+    # Check for and drop any duplicates
+    players_df = players_df.loc[:, ~players_df.columns.duplicated()]
+    return players_df
+
+
+def data_preprocessing():
+    #Check for missing values
+    players_df = get_player_data()
+    fixtures_df = get_fixtures()
+    # Assuming players_df and fixtures_df are already defined
+    missing_values_players = players_df.isnull().sum()
+    missing_values_fixtures = fixtures_df.isnull().sum()
+
+    missing_values_summary = {
+        'players_df_missing_values': missing_values_players[missing_values_players > 0],
+        'fixtures_df_missing_values': missing_values_fixtures[missing_values_fixtures > 0]
+    }
+
+    print(missing_values_summary)
+    #Handling missing values
+        # Dropping irrelevant columns from players_df
+    irrelevant_columns_players = [
+        'squad_number',
+        'region',
+        'corners_and_indirect_freekicks_order',
+        'chance_of_playing_this_round',
+        'news_added',
+        'chance_of_playing_next_round',
+        'code', 'first_name', 'second_name', 'photo', 'news','direct_freekicks_text','penalties_text','transfers_in','transfers_out'
+    ]
+
+    # These columns are not important because we have other columns in the dataset that tells the same thing. 
+
+    players_df_cleaned = players_df.drop(columns=irrelevant_columns_players, errors='ignore')
+    # Replace NaN values in 'direct_freekick_order' and 'penalties_order' with 0
+    players_df_cleaned['direct_freekicks_order'] = players_df_cleaned['direct_freekicks_order'].fillna(0)
+    players_df_cleaned['penalties_order'] = players_df_cleaned['penalties_order'].fillna(0)
+
+    # Step 2: Label encoding for the 'status' column
     if 'status' in players_df.columns:
         le = LabelEncoder()
-        players_df['status'] = le.fit_transform(players_df['status'])
+        players_df_cleaned['status'] = le.fit_transform(players_df_cleaned['status'])
 
-    # Define the feature columns for PCA
-    feature_columns = ['ep_this', 'minutes', 'goals_scored', 'assists', 'bps', 'influence', 'creativity', 'ict_index', 'average_fdr']
-    
-    # Preprocessing
-    players_df = players_df.dropna(subset=feature_columns)
-    X = players_df[feature_columns].apply(pd.to_numeric, errors='coerce').dropna()
+    # Convert boolean columns to integers (True -> 1, False -> 0)
+    bool_columns = players_df_cleaned.select_dtypes(include=['bool']).columns
+    players_df_cleaned[bool_columns] = players_df_cleaned[bool_columns].astype(int)
 
-    # Scale features
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    # Convert object columns to numeric (if applicable)
+    # This will convert the strings to NaN if they can't be converted to numbers
+    object_columns = players_df_cleaned.select_dtypes(include=['object']).columns
+    players_df_cleaned[object_columns] = players_df_cleaned[object_columns].apply(pd.to_numeric, errors='coerce')
+
+    # Assuming the original status values are 'i' for injured, 'u' for unavailable, and 'a' for available
+    players_df = players_df[~players_df['status'].isin(['i', 'u'])]
+
+    # Select only the numerical columns
+    data = players_df_cleaned.select_dtypes(include=['float64', 'int64']) 
+
+    return players_df, data
+
+def feature_selection(data):
+      # Calculate the variance for each feature
+    variances = data.var()
+
+    # Sort the features by variance in descending order
+    sorted_variances = variances.sort_values(ascending=False)
+
+    # Apply VarianceThreshold to filter features with low variance
+    # Set the variance threshold (e.g., 3000); you can adjust this value as needed
+    selector = VarianceThreshold(threshold=500)
+    selector.fit(data)
+
+    # Get the feature names that are kept after applying VarianceThreshold
+    high_variance_columns = data.columns[selector.get_support()]
+
+    # Filter out 'id' or any other irrelevant features
+    high_variance_columns = [col for col in high_variance_columns if col != 'id']
+
+    # Print the selected high-variance features
+    print("Selected high-variance features:\n", high_variance_columns)
+
+    # Selecting features with higher variance
+    data = data[high_variance_columns]
+
+    # Sort the high variance columns based on their variance values in descending order
+    high_variance_sorted = sorted_variances[high_variance_columns].sort_values(ascending=False)
+
+    # Print the sorted high-variance features
+    print("\nSorted High-Variance Features:\n", high_variance_sorted)
+
+    #Selecting features with higher variance
+    data = data[high_variance_sorted.index]
+    return data
+
+def data_scaling(data):
+        # Initialize the MinMaxScaler
+    scaler = MinMaxScaler()
+
+    # Scale the selected features
+    data_scaled = scaler.fit_transform(data)
+
+    # Convert the scaled data back to a DataFrame
+    data_scaled_df = pd.DataFrame(data_scaled, columns=data.columns)
+
+    return data_scaled_df
+
+def pca_and_kmeans(data_scaled_df,players_df):
 
     # Apply PCA
-    pca = PCA(n_components=2)  # Reduce to 2 components
-    X_pca = pca.fit_transform(X_scaled)
+    pca = PCA(n_components=2)  # You can adjust the number of components
+    data_pca = pca.fit_transform(data_scaled_df)
+    explained_variance = pca.explained_variance_ratio_
+    print(explained_variance)  # Output will show the proportion of variance explained by each principal component
 
-    # Store the PCA results in the dataframe
-    players_df['pca_1'] = X_pca[:, 0]
-    players_df['pca_2'] = X_pca[:, 1]
+    # Store the explained variance ratios into two variables
+    explained_variance_pc1 = round(pca.explained_variance_ratio_[0],2)  # Variance for PC1
+    explained_variance_pc2 = round(pca.explained_variance_ratio_[1],2)  # Variance for PC2
+  
+    #Check for non-linearity to assign pca score
+    # Assume total_points is a Series containing the total points for each player
+    total_points = players_df['total_points']  # Replace with your actual column name
 
-    # Calculate the PCA score (sum of the two components)
-    players_df['pca_score'] = players_df['pca_1'] + players_df['pca_2']
+    # Create a new DataFrame
+    pca_df = pd.DataFrame(data=data_pca, columns=['PC1', 'PC2'])
+    pca_df['Total Points'] = total_points
 
-    # Apply K-Means Clustering based on PCA results
-    kmeans = KMeans(n_clusters=2, random_state=42)
-    players_df['cluster'] = kmeans.fit_predict(X_pca)
+    pca_df_cleaned = pca_df.dropna(subset=['PC1', 'Total Points'])
 
-    # Rank the players based on the PCA score (higher score is better)
-    players_df['rank'] = players_df['pca_score'].rank(ascending=False)
+    X = pca_df_cleaned[['PC1']]
+    y = pca_df_cleaned['Total Points']
 
-    # Sort the DataFrame by rank
-    players_df_sorted = players_df.sort_values(by='rank')
+    # Step 2: Transform PC1 to polynomial features
+    poly = PolynomialFeatures(degree=2)  # You can change the degree as needed
+    X_poly = poly.fit_transform(X)
 
-    # Calculate the mean PCA score for each cluster
-    cluster_means = players_df.groupby('cluster')['pca_score'].mean().reset_index()
+    # Step 3: Fit a polynomial regression model
+    poly_model = LinearRegression()
+    poly_model.fit(X_poly, y)
 
-    # Identify the best cluster based on the higher mean PCA score
-    best_cluster = cluster_means.loc[cluster_means['pca_score'].idxmax(), 'cluster']
+    # Get predictions and calculate R² score
+    poly_predictions = poly_model.predict(X_poly)
+    poly_r2 = r2_score(y, poly_predictions)
+
+    # Fit a linear regression model for comparison
+    linear_model = LinearRegression()
+    linear_model.fit(X, y)
+    linear_predictions = linear_model.predict(X)
+    linear_r2 = r2_score(y, linear_predictions)
+
+    # Step 4: Determine non-linearity based on R² scores
+    # If polynomial R² is significantly higher than linear R², we consider it non-linear
+    threshold = 0.01  # Adjust threshold based on your criteria
+    non_linearity = 1 if (poly_r2 - linear_r2 > threshold) else 0
+
+    # Print results
+    print(f'Polynomial R²: {poly_r2}')
+    print(f'Linear R²: {linear_r2}')
+    print(f'Non-linearity for PC1: {non_linearity}')
+
+    #Handle Non-linear relationship:
+
+    non_linearity_pc1 = 1 if poly_r2 > linear_r2 else 0
+
+    # Step 4: Calculate Scores based on non-linearity
+    if non_linearity_pc1 == 1:
+        # PC1 is non-linear; use polynomial features
+        poly = PolynomialFeatures(degree=2)  # Adjust degree as needed
+        poly_features = poly.fit_transform(pca_df[['PC1']])  # This will include the constant term
+
+        # Add polynomial features to the DataFrame
+        pca_df[['PC1', 'PC1^2']] = poly_features[:, 1:]  # Ignore the first column (constant)
+
+        # Calculate Score using polynomial feature of PC1 and original PC2
+        players_df['Score'] = (explained_variance_pc1 * pca_df['PC1^2']) + (explained_variance_pc2 * pca_df['PC2'])
+    else:
+        # PC1 is linear; use original PC1
+        players_df['Score'] = (explained_variance_pc1 * pca_df['PC1']) + (explained_variance_pc2 * pca_df['PC2'])
+
+            # Step 5: Sort players_df by Score in descending order and print 'web_name' and 'Score'
+        sorted_players_df = players_df[['web_name', 'Score']].sort_values(by='Score', ascending=False)
+
+            #K means
+            # Step 3: Fit K-means with the optimal number of clusters (k=2)
+    optimal_k = 2
+    kmeans = KMeans(n_clusters=optimal_k, random_state=42)  # Using random_state for reproducibility
+    if non_linearity_pc1:
+        kmeans.fit(pca_df[['PC1', 'PC2']])  # Fit the model
+    else:
+        kmeans.fit(pca_df[['PC1','PC1^2', 'PC2']])  # Fit the model
+
+
+    # Step 4: Add cluster labels to your original DataFrame
+    pca_df['Cluster'] = kmeans.labels_
+
+    # Optional: Print the centroids
+    centroids = kmeans.cluster_centers_
+    print("Cluster Centroids:")
+    print(centroids)
+
+        # Step 2: Calculate the average 'PC1' value for each cluster (you can use 'Total Points' or other metric)
+    cluster_avg = pca_df.groupby('Cluster')['PC1'].mean()
+
+    # Step 3: Identify the worst cluster (lowest average 'PC1' score)
+    worst_cluster = cluster_avg.idxmin()  # Get the cluster with the lowest average 'PC1'
+
+    # Use .loc to filter players_df based on the clusters in pca_df
+    players_df_filtered = players_df.loc[pca_df['Cluster'] != worst_cluster]
+
+    # Sort the filtered players_df by Score in descending order
+    players_df_filtered_sorted = players_df_filtered.sort_values(by='Score', ascending=False)
+
+    # Display the sorted DataFrame
+    print(players_df_filtered_sorted[['web_name', 'Score']])
+
+    players_df_filtered = add_average_fdr(players_df_filtered)
+
+    return players_df, players_df_filtered
+
+def adjust_fdr(players_df_filtered):
     
-    # Filter to only include players from the best cluster
-    players_df_filtered = players_df_sorted[players_df_sorted['cluster'] == best_cluster]
-   
+    # Calculate the new score
+    # Set the weight for adjusted_fdr
+    weight = 0.1  # Adjust this value based on how much you want to influence the score
+
+    # Calculate the new score
+    players_df_filtered['adjusted_score'] = players_df_filtered['Score'] + (weight * players_df_filtered['adjusted_fdr'])
+
+    # Optional: Display the updated DataFrame to check the new scores
+    print(players_df_filtered[['Score', 'adjusted_fdr', 'adjusted_score']].head())
+
+    # Sort the filtered players_df by Score in descending order
+    players_df_filtered_sorted = players_df_filtered.sort_values(by='Score', ascending=False)
+
+    # Display the sorted DataFrame
+    print(players_df_filtered_sorted[['web_name', 'Score']])
+
+    # Continue to map positions and get top players
+
     # Position mapping
     position_mapping = {1: 'goalkeeper', 2: 'defender', 3: 'midfielder', 4: 'forward'}
-    players_df_filtered['position'] = players_df_filtered['element_type'].map(position_mapping)
+    players_df_filtered_sorted['position'] = players_df_filtered_sorted['element_type'].map(position_mapping)
 
+    players_df_filtered_sorted = add_average_fdr(players_df_filtered_sorted)
+    return players_df_filtered_sorted
+    
+
+
+def get_top_players_by_position():
+    # Function to fetch fixtures data
+    players_df, pre_data = data_preprocessing()
+    data = feature_selection(pre_data)
+    data_scaled_df = data_scaling(data)
+    players_df, players_df_filtered  = pca_and_kmeans(data_scaled_df,players_df)
+    players_df_filtered_sorted = adjust_fdr(players_df_filtered)
     # Rank players based on PCA score from the filtered dataframe
-    top_goalkeepers = players_df_filtered[players_df_filtered['position'] == 'goalkeeper'].nlargest(5, 'pca_score')[['id', 'web_name', 'pca_score', 'now_cost', 'influence', 'average_fdr', 'minutes', 'rank', 'element_type']]
-    top_defenders = players_df_filtered[players_df_filtered['position'] == 'defender'].nlargest(15, 'pca_score')[['id', 'web_name', 'pca_score', 'now_cost', 'influence', 'average_fdr', 'minutes', 'rank', 'element_type']]
-    top_midfielders = players_df_filtered[players_df_filtered['position'] == 'midfielder'].nlargest(15, 'pca_score')[['id', 'web_name', 'pca_score', 'now_cost', 'influence', 'average_fdr', 'minutes', 'rank', 'element_type']]
-    top_forwards = players_df_filtered[players_df_filtered['position'] == 'forward'].nlargest(13, 'pca_score')[['id', 'web_name', 'pca_score', 'now_cost', 'influence', 'average_fdr', 'minutes', 'rank', 'element_type']]
+    top_goalkeepers = players_df_filtered_sorted[players_df_filtered_sorted['position'] == 'goalkeeper']\
+                        .nlargest(15, 'adjusted_score')[['id', 'web_name', 'adjusted_score', 'now_cost', 'influence', 'average_fdr', 'minutes', 'element_type']]
 
-    return top_goalkeepers, top_defenders, top_midfielders, top_forwards, players_df_filtered
+    top_defenders = players_df_filtered_sorted[players_df_filtered_sorted['position'] == 'defender']\
+                        .nlargest(15, 'adjusted_score')[['id', 'web_name', 'adjusted_score', 'now_cost', 'influence', 'average_fdr', 'minutes','element_type' ]]
+
+    top_midfielders = players_df_filtered_sorted[players_df_filtered_sorted['position'] == 'midfielder']\
+                        .nlargest(15, 'adjusted_score')[['id', 'web_name', 'adjusted_score', 'now_cost', 'influence', 'average_fdr', 'minutes', 'element_type']]
+
+    top_forwards = players_df_filtered_sorted[players_df_filtered_sorted['position'] == 'forward']\
+                        .nlargest(20, 'adjusted_score')[['id', 'web_name', 'adjusted_score', 'now_cost', 'influence', 'average_fdr', 'minutes', 'element_type']]
+
+
+    # # Return top players
+    # return top_goalkeepers, top_defenders, top_midfielders, top_forwards
+
+    # Display results
+    print("Top Goalkeepers:")
+    print(top_goalkeepers)
+
+    print("\nTop Defenders:")
+    print(top_defenders)
+
+    print("\nTop Midfielders:")
+    print(top_midfielders)
+
+    print("\nTop Forwards:")
+    print(top_forwards)
+
+    return top_goalkeepers,top_defenders,top_midfielders,top_forwards, players_df_filtered_sorted
 
 def get_input_squad(myteam_id, gw_number):
     # Function to fetch the picks for a given team and gameweek
@@ -455,7 +655,7 @@ def sort_by_pca_scores(watch_avoid):
         return None
 
     # Get average FDR for each team
-    average_fdr = calculate_average_fdr(fixtures_df)
+    average_fdr = calculate_average_fdr()
 
     # Map team names back to their IDs
     team_mapping = {
@@ -487,20 +687,20 @@ def sort_by_pca_scores(watch_avoid):
     pca_scores = pca.fit_transform(X_scaled)
 
     # Add PCA scores to the DataFrame
-    watch_avoid['pca_score'] = pca_scores[:, 0]  # Take the first component as the score
+    watch_avoid['adjusted_score'] = pca_scores[:, 0]  # Take the first component as the score
 
     # Apply K-Means clustering (using 2 clusters as an example)
     kmeans = KMeans(n_clusters=2, random_state=42)
     watch_avoid['cluster'] = kmeans.fit_predict(X_scaled)
 
     # Rank players based on PCA scores (higher score is better)
-    watch_avoid['rank'] = watch_avoid['pca_score'].rank(ascending=False)
+    watch_avoid['rank'] = watch_avoid['adjusted_score'].rank(ascending=False)
 
     # Sort the DataFrame by rank
     sorted_watch_avoid = watch_avoid.sort_values(by='rank')
 
     # Return only 'id', 'web_name', and 'rank' columns
-    return sorted_watch_avoid[['id', 'web_name', 'rank', 'pca_score','element_type','now_cost']]
+    return sorted_watch_avoid[['id', 'web_name', 'rank', 'adjusted_score','element_type','now_cost']]
 
 def suggest_transfer(watch_avoid, top_goalkeepers, top_defenders, top_midfielders, top_forwards, available_budget, free_transfers, team_id):
     # Define position mapping
@@ -515,21 +715,26 @@ def suggest_transfer(watch_avoid, top_goalkeepers, top_defenders, top_midfielder
         affordable_players = top_players[top_players['now_cost'] <= (player['now_cost'] + available_budget)]
 
         # Further filter players to those with higher PCA scores
-        affordable_players = affordable_players[affordable_players['pca_score'] > player['pca_score']]
+        affordable_players = affordable_players[affordable_players['adjusted_score'] > player['adjusted_score']]
 
         # Exclude players who are already in the squad
         affordable_players = affordable_players[~affordable_players['web_name'].isin(input_squad['web_name'])]
 
         if not affordable_players.empty:
             # Sort affordable players by PCA score (descending for higher scores)
-            affordable_players = affordable_players.sort_values(by='pca_score', ascending=False)
+            affordable_players = affordable_players.sort_values(by='adjusted_score', ascending=False)
             # Return the best replacement (highest PCA score)
+            print("returned players are, ", affordable_players.iloc[0])
             return affordable_players.iloc[0]
 
         return None
 
     # List to store suggested transfers
     suggested_transfers = []
+    print("columns are", watch_avoid.columns)
+     # Position mapping
+    # position_mapping = {1: 'goalkeeper', 2: 'defender', 3: 'midfielder', 4: 'forward'}
+    # players_df_filtered_sorted['position'] = players_df_filtered_sorted['element_type'].map(position_mapping)
 
     # Evaluate transfers based on free transfers available
     for index, player in watch_avoid.iterrows():
@@ -682,12 +887,12 @@ def suggest_transfer(watch_avoid, top_goalkeepers, top_defenders, top_midfielder
 
 def determine_captain_and_vice_captain(players_df):
     # Ensure the necessary columns are present
-    if 'pca_score' not in players_df.columns:
+    if 'adjusted_score' not in players_df.columns:
         print("PCA score column is missing in the DataFrame.")
         return None
 
     # Drop rows with missing PCA scores
-    players_df = players_df.dropna(subset=['pca_score'])
+    players_df = players_df.dropna(subset=['adjusted_score'])
 
     # Check if there are enough players to select a captain and vice-captain
     if players_df.shape[0] < 2:
@@ -695,7 +900,7 @@ def determine_captain_and_vice_captain(players_df):
         return None
 
     # Sort the players by PCA score in descending order
-    sorted_players = players_df.sort_values(by='pca_score', ascending=False)
+    sorted_players = players_df.sort_values(by='adjusted_score', ascending=False)
 
     # Select the captain and vice-captain based on PCA scores
     captain = sorted_players.iloc[0]  # Player with the highest PCA score
