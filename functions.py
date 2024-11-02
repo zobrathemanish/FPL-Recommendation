@@ -221,7 +221,7 @@ def feature_selection(data):
 
     # Apply VarianceThreshold to filter features with low variance
     # Set the variance threshold (e.g., 3000); you can adjust this value as needed
-    selector = VarianceThreshold(threshold=500)
+    selector = VarianceThreshold(threshold=0)
     selector.fit(data)
 
     # Get the feature names that are kept after applying VarianceThreshold
