@@ -374,7 +374,7 @@ def adjust_fdr(players_df_filtered):
     
     # Calculate the new score
     # Set the weight for adjusted_fdr
-    weight = 0.1  # Adjust this value based on how much you want to influence the score
+    weight = 0.7  # Adjust this value based on how much you want to influence the score
 
     # Calculate the new score
     players_df_filtered['adjusted_score'] = players_df_filtered['Score'] + (weight * players_df_filtered['adjusted_fdr'])
@@ -598,7 +598,6 @@ def calculate_transfer_budget(team_id, gw_number):
     transfer_budget = merged_df['now_cost'].sum() / 10  # now_cost is in tenths of millions, convert to millions
     return transfer_budget
     
-    import pandas as pd
 import requests
 
 def get_team_info(team_id):
