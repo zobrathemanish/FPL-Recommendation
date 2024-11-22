@@ -30,19 +30,17 @@ I'm thrilled to share a project that combines **machine learning** and **data en
 
 ### 1. Input Form
 An interactive form where users enter their team ID to generate personalized recommendations:
-![Input Form Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/images/Input_Form_Screenshot.png)
+![Input Form Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/blob/main/images/Input_Form_Screenshot.png)
 
 ### 2. Player Recommendations
 A detailed list of recommended players, ranked by variance-weighted PCA scores:
-![Player Recommendations Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/images/Picture1.png)
-![Player Recommendations Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/images/Picture2.png)
-![Player Recommendations Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/images/Picture3.png)
-![Player Recommendations Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/images/Picture4.png)
-![Player Recommendations Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/images/Picture5.png)
+![Player Recommendations Screenshot 1](https://github.com/zobrathemanish/FPL-Recommendation-System/blob/main/images/Picture1.png)
+![Player Recommendations Screenshot 2](https://github.com/zobrathemanish/FPL-Recommendation-System/blob/main/images/Picture2.png)
+![Player Recommendations Screenshot 3](https://github.com/zobrathemanish/FPL-Recommendation-System/blob/main/images/Picture3.png)
 
 ### 3. Expected Points Breakdown
 A visualization of expected points for each recommended player, including metrics like goals, assists, and clean sheets:
-![Expected Points Breakdown Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/images/picture6.png)
+![Expected Points Breakdown Screenshot](https://github.com/zobrathemanish/FPL-Recommendation-System/blob/main/images/picture6.png)
 
 ---
 
